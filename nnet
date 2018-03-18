@@ -1,0 +1,4 @@
+#!/bin/bash
+
+# learning rate, num epochs, train, test, logistic or net
+python net.py $1 $2 $3 $4 n
