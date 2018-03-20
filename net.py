@@ -159,20 +159,14 @@ if __name__ == '__main__':
     # print(attr_names)
     # print(attr_values)
 
-    # Create and standardize training instances
+    # Create and standardize and randomize training instances
     train_instances = create_instances_from_arff_data(train_data, attr_names, attr_types, attr_values)
     std_train_instances = standardize_instances(train_instances, attr_names, attr_types, attr_values)
-
-    # for instance in std_train_instances:
-        # print(instance)
-
-    # Randomize training instances
-
+    random.shuffle(std_train_instances)
 
     # Create and standardize testing instances
     # test_instances = create_instances_from_arff_data(test_data, attr_types)
-
-
+    # std_test_instances = standardize_instances(test_instances, attr_names, attr_types, attr_values)
 
     # Logistic Regression
     if sys.argv[5] == 'l':
