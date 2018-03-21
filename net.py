@@ -141,7 +141,7 @@ class Node(object):
                 self.output_value += parent.parent_node.get_output() * parent.weight
             self.output_value = sigmoid(self.output_value)
         else:
-            raise('Calculating output for non hidden/output node!')
+            raise('Updating output for non hidden/output node!')
 
     def get_output(self):
         if self.node_type == NodeType.BIAS_TO_HIDDEN or self.node_type == NodeType.BIAS_TO_OUTPUT:
@@ -150,7 +150,7 @@ class Node(object):
             return self.output_value
 
 
-class Weight(object):
+class NodeWeightPair(object):
     ''' A weight in the net. '''
 
     def __init__(self, parent_node, weight):
@@ -170,6 +170,8 @@ class Net(object):
         self.attr_names = attr_names
         self.attr_values = attr_values
         self.train_instances = train_instances
+        self.learning_rate = learning_rate
+        self.num_epochs = num_epochs
 
 
 class NeuralNet(Net):
@@ -185,6 +187,37 @@ class Logistic(Net):
 
     def __init__(self, labels, attr_names, attr_values, train_instances, learning_rate, num_epochs):
         Net.__init__(self, labels, attr_names, attr_values, train_instances, learning_rate, num_epochs)
+
+        # Create input nodes
+        self.input_nodes = []
+        bias_to_output_node = Node(NodeType.BIAS_TO_OUTPUT)
+        self.input_nodes.append(bias_to_output_node)
+        for _ in range(len(attr_names)):
+            input_node = Node(NodeType.INPUT)
+            self.input_nodes.append(input_node)
+
+        # Create output node and link it to all the input nodes with random weights
+        self.output_node = Node(NodeType.OUTPUT)
+        for input_node in self.input_nodes:
+            nwp = NodeWeightPair(input_node, random.choice([-0.01,0.01]))
+            output_node.parents.append(input_node)
+
+    def train(self):
+        current_epoch = 0
+        while current_epoch <= self.epochs:
+            for instance in self.train_instances:
+                error_output = self.forward_pass(instance)
+                self.backward_pass(error_output)
+                self.update_weights()
+            current_epoch += 1
+
+    def forward_pass(self, instance):
+        # Set input node values
+        for input_node in self.input_nodes:
+            input_node.output = instance.attributes[self.input_nodes.index(input_node)]
+
+        self.output_node.update_output()
+        return self.output_node.get_output()
 
 
 
