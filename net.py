@@ -176,18 +176,43 @@ class Net(object):
         self.learning_rate = learning_rate
         self.num_epochs = num_epochs
 
+    def train(self):
+        current_epoch = 1
+        while current_epoch <= self.num_epochs:
+            sum_cross_entropy_error = 0.0
+            num_correct = 0.0
+            num_wrong = 0.0
+            random.shuffle(self.train_instances)
+            for instance in self.train_instances:
+                output_value = self.forward_pass(instance)
+                cross_entropy_error = self.calc_cross_entropy_error(instance, output_value)
+                if ( (output_value < 0.5) and (instance.label == self.labels[0]) ) or \
+                   ( (output_value > 0.5) and (instance.label == self.labels[1]) ):
+                    num_correct += 1.0
+                else:
+                    num_wrong += 1.0
+                sum_cross_entropy_error += cross_entropy_error
+                self.output_node.delta_j = -self.calc_gradient(instance, output_value)
+                self.update_weights()
+            print('{}\t{}\t{}\t{}'.format(current_epoch, sum_cross_entropy_error, int(num_correct), int(num_wrong)))
+            current_epoch += 1
 
-class NeuralNet(Net):
-    ''' '''
+    def calc_cross_entropy_error(self, instance, output_value):
+        o = output_value
+        y = 0.0
+        if instance.label == self.labels[1]:
+            y = 1.0
+        return ( (-y * math.log(o)) - ((1.0 - y) * math.log(1.0 - o)) )
 
-    def __init__(self, labels, attr_names, attr_values, train_instances, learning_rate, num_epochs, num_hidden):
-        Net.__init__(self, labels, attr_names, attr_values, train_instances, learning_rate, num_epochs)
-	self.num_hidden = num_hidden
+    def calc_gradient(self, instance, output_value):
+        o = output_value
+        y = 0.0
+        if instance.label == self.labels[1]:
+            y = 1.0
+        return o - y
 
 
 class Logistic(Net):
-    ''' '''
-
     def __init__(self, labels, attr_names, attr_values, train_instances, learning_rate, num_epochs):
         Net.__init__(self, labels, attr_names, attr_values, train_instances, learning_rate, num_epochs)
 
@@ -205,59 +230,73 @@ class Logistic(Net):
             nwp = NodeWeightPair(input_node, random.choice([-0.01,0.01]))
             self.output_node.parent_nwps.append(nwp)
 
-    def train(self):
-        current_epoch = 1
-        while current_epoch <= self.num_epochs:
-            # print('\n==========================================================================')
-            # print('epoch number:\t' + str(current_epoch) + '\n')
-            sum_cross_entropy_error = 0.0
-            num_correct = 0.0
-            num_wrong = 0.0
-            random.shuffle(self.train_instances)
-            for instance in self.train_instances:
-            # for instance in self.train_instances[:10]:
-                output_value = self.forward_pass(instance)
-                # print('expected: {}\t\tactual: {}'.format(str(instance.label), str(output_value)))
-                cross_entropy_error = self.calc_cross_entropy_error(instance, output_value)
-
-                if ( (output_value < 0.5) and (instance.label == self.labels[0]) ) or \
-                   ( (output_value > 0.5) and (instance.label == self.labels[1]) ):
-                    num_correct += 1.0
-                else:
-                    num_wrong += 1.0
-
-                sum_cross_entropy_error += cross_entropy_error
-                self.output_node.delta_j = -self.calc_gradient(instance, output_value)
-                self.update_weights()
-            print('{}\t{}\t{}\t{}'.format(current_epoch, sum_cross_entropy_error, int(num_correct), int(num_wrong)))
-            current_epoch += 1
-
     def forward_pass(self, instance):
-        ''' Set input node values and calculate output. '''
         for attr_value in instance.attributes:
             self.input_nodes[instance.attributes.index(attr_value) + 1].output_value = attr_value
         self.output_node.update_output()
         output_value = self.output_node.get_output()
         return self.output_node.get_output()
 
-    def calc_cross_entropy_error(self, instance, output_value):
-        o = output_value
-        y = 0.0
-        if instance.label == self.labels[1]:
-            y = 1.0
-        return ( (-y * math.log(o)) - ((1.0 - y) * math.log(1.0 - o)) )
-
-    def calc_gradient(self, instance, output_value):
-        o = output_value
-        y = 0.0
-        if instance.label == self.labels[1]:
-            y = 1.0
-        return o - y
-
     def update_weights(self):
         for nwp in self.output_node.parent_nwps:
             nwp.delta_w = self.learning_rate * nwp.parent_node.get_output() * self.output_node.delta_j
             nwp.update_weight()
+
+
+class NeuralNet(Net):
+    def __init__(self, labels, attr_names, attr_values, train_instances, learning_rate, num_epochs, num_hidden):
+        Net.__init__(self, labels, attr_names, attr_values, train_instances, learning_rate, num_epochs)
+	self.num_hidden = num_hidden
+
+        # Create input nodes
+        self.input_nodes = []
+        bias_to_hidden_node = Node(NodeType.BIAS_TO_HIDDEN)
+        self.input_nodes.append(bias_to_hidden_node)
+        for _ in range(len(attr_names)):
+            input_node = Node(NodeType.INPUT)
+            self.input_nodes.append(input_node)
+
+        # Create hidden nodes
+        self.hidden_nodes = []
+        bias_to_output_node = Node(NodeType.BIAS_TO_OUTPUT)
+        self.hidden_nodes.append(bias_to_output_node)
+        for _ in range(self.num_hidden):
+            hidden_node = Node(NodeType.HIDDEN)
+            for input_node in self.input_nodes:
+                nwp = NodeWeightPair(input_node, random.choice([-0.01,0.01]))
+                hidden_node.parent_nwps.append(nwp)
+            self.hidden_nodes.append(hidden_node)
+
+        # Create output node and link it to all the hidden nodes with random weights
+        self.output_node = Node(NodeType.OUTPUT)
+        for hidden_node in self.hidden_nodes:
+            nwp = NodeWeightPair(hidden_node, random.choice([-0.01,0.01]))
+            self.output_node.parent_nwps.append(nwp)
+
+    def forward_pass(self, instance):
+        for attr_value in instance.attributes:
+            self.input_nodes[instance.attributes.index(attr_value) + 1].output_value = attr_value
+        for hidden_node in self.hidden_nodes[1:]:
+            hidden_node.update_output()
+        self.output_node.update_output()
+        output_value = self.output_node.get_output()
+        return self.output_node.get_output()
+
+    def update_weights(self):
+        # Update hidden to output layer weights
+        for nwp in self.output_node.parent_nwps:
+            nwp.delta_w = self.learning_rate * nwp.parent_node.get_output() * self.output_node.delta_j
+            nwp.update_weight()
+            # Update hidden node's delta_j
+            nwp.parent_node.delta_j = self.output_node.delta_j
+            # nwp.parent_node.delta_j = ( nwp.parent_node.get_output() * (1 - nwp.parent_node.get_output()) ) * \
+                    # (self.output_node.delta_j * nwp.delta_w)
+
+        # Update input to hidden layer weights
+        for hidden_node in self.hidden_nodes:
+            for nwp in hidden_node.parent_nwps:
+                nwp.delta_w = self.learning_rate * nwp.parent_node.get_output() * hidden_node.delta_j
+                nwp.update_weight()
 
 
 if __name__ == '__main__':
@@ -322,54 +361,49 @@ if __name__ == '__main__':
 
     # Logistic Regression
     if sys.argv[1] == 'l':
-        # Initialize and train model
-        lr = Logistic(labels, attr_names, attr_values, std_train_instances, learning_rate, num_epochs)
-        lr.train()
-
-        # Run each test instance through model
-        TP = 0.0
-        TN = 0.0
-        FP = 0.0
-        FN = 0.0
-        num_correct = 0.0
-        num_wrong = 0.0
-        for instance in std_test_instances:
-            output_value = lr.forward_pass(instance)
-            predicted_label = 0
-            if output_value > 0.5:
-                predicted_label = 1
-            actual_label = 0
-            if instance.label == labels[1]:
-                actual_label = 1
-            if predicted_label == 1:
-                if actual_label == 1:
-                    TP += 1.0
-                else:
-                    FP += 1.0
-            else:
-                if actual_label == 0:
-                    TN += 1.0
-                else:
-                    FN += 1.0
-            if predicted_label == actual_label:
-                num_correct += 1.0
-            else:
-                num_wrong += 1.0
-            print('{:.9f}\t{}\t{}'.format(output_value, int(predicted_label), int(actual_label)))
-
-        print('{}\t{}'.format(str(int(num_correct)), str(int(num_wrong))))
-        precision = TP / (TP + FP)
-        recall = TP / (TP + FN)
-        f1 = 2 * ((precision * recall) / (precision + recall))
-        print(f1)
-
+        model = Logistic(labels, attr_names, attr_values, std_train_instances, learning_rate, num_epochs)
     # Neural Net
     elif sys.argv[1] == 'n':
 	num_hidden = int(sys.argv[6])
-        nn = NeuralNet(labels, attr_names, attr_values, std_train_instances, learning_rate, num_epochs, num_hidden)
+        model = NeuralNet(labels, attr_names, attr_values, std_train_instances, learning_rate, num_epochs, num_hidden)
+    model.train()
 
+    # Run each test instance through model
+    TP = 0.0
+    TN = 0.0
+    FP = 0.0
+    FN = 0.0
+    num_correct = 0.0
+    num_wrong = 0.0
+    for instance in std_test_instances:
+        output_value = model.forward_pass(instance)
+        predicted_label = 0
+        if output_value > 0.5:
+            predicted_label = 1
+        actual_label = 0
+        if instance.label == labels[1]:
+            actual_label = 1
+        if predicted_label == 1:
+            if actual_label == 1:
+                TP += 1.0
+            else:
+                FP += 1.0
+        else:
+            if actual_label == 0:
+                TN += 1.0
+            else:
+                FN += 1.0
+        if predicted_label == actual_label:
+            num_correct += 1.0
+        else:
+            num_wrong += 1.0
+        print('{:.9f}\t{}\t{}'.format(output_value, int(predicted_label), int(actual_label)))
 
-
+    print('{}\t{}'.format(str(int(num_correct)), str(int(num_wrong))))
+    precision = TP / (TP + FP)
+    recall = TP / (TP + FN)
+    f1 = 2 * ((precision * recall) / (precision + recall))
+    print(f1)
 
 
 
