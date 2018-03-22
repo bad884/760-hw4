@@ -3,6 +3,7 @@ from enum import Enum
 
 import collections
 import math
+import numpy as np
 import random
 import sys
 
@@ -130,15 +131,15 @@ class Node(object):
     def __init__(self, node_type):
         self.node_type = node_type
         self.output_value = 0.0
-        self.parents = []
+        self.parent_nwps = []
         self.delta_j = 0.0
 
     def update_output(self):
         ''' Calculate output for hidden and output nodes. '''
         self.output_value = 0.0
         if self.node_type == NodeType.HIDDEN or self.node_type == NodeType.OUTPUT:
-            for parent in parents:
-                self.output_value += parent.parent_node.get_output() * parent.weight
+            for parent_nwp in self.parent_nwps:
+                self.output_value += parent_nwp.parent_node.get_output() * parent_nwp.weight
             self.output_value = sigmoid(self.output_value)
         else:
             raise('Updating output for non hidden/output node!')
@@ -149,6 +150,8 @@ class Node(object):
         else:
             return self.output_value
 
+    def __repr__(self):
+        return '{}:\toutput = {}\tdelta_j = {}'.format(str(self.node_type), str(self.get_output()), str(self.delta_j))
 
 class NodeWeightPair(object):
     ''' A weight in the net. '''
@@ -156,7 +159,7 @@ class NodeWeightPair(object):
     def __init__(self, parent_node, weight):
         self.parent_node = parent_node
         self.weight = weight
-        self.delta_w = delta_w
+        self.delta_w = 0.0
 
     def update_weight(self):
         self.weight = self.weight + self.delta_w
@@ -200,24 +203,33 @@ class Logistic(Net):
         self.output_node = Node(NodeType.OUTPUT)
         for input_node in self.input_nodes:
             nwp = NodeWeightPair(input_node, random.choice([-0.01,0.01]))
-            output_node.parents.append(input_node)
+            self.output_node.parent_nwps.append(nwp)
 
     def train(self):
         current_epoch = 0
-        while current_epoch <= self.epochs:
-            for instance in self.train_instances:
-                error_output = self.forward_pass(instance)
-                self.backward_pass(error_output)
-                self.update_weights()
+        while current_epoch <= self.num_epochs:
+            print('==========================================================================')
+            print('\nepoch number:\t' + str(current_epoch))
+            for instance in self.train_instances[:10]:
+                output_value = self.forward_pass(instance)
+                error = self.calc_cross_entropy_error(instance, output_value)
+                print(error)
+                # self.backward_pass(error_output)
+                # self.update_weights()
             current_epoch += 1
 
     def forward_pass(self, instance):
-        # Set input node values
-        for input_node in self.input_nodes:
-            input_node.output = instance.attributes[self.input_nodes.index(input_node)]
-
+        ''' Set input node values and calculate output. '''
+        for attr_value in instance.attributes:
+            self.input_nodes[instance.attributes.index(attr_value) + 1].output_value = attr_value
         self.output_node.update_output()
+        output_value = self.output_node.get_output()
         return self.output_node.get_output()
+
+    def calc_cross_entropy_error(self, instance, output_value):
+
+    def backward_pass(self):
+        return 0
 
 
 
@@ -284,6 +296,7 @@ if __name__ == '__main__':
     # Logistic Regression
     if sys.argv[1] == 'l':
         lr = Logistic(labels, attr_names, attr_values, std_train_instances, learning_rate, num_epochs)
+        lr.train()
 
 
 
