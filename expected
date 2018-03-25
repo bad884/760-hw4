@@ -1,0 +1,7 @@
+LR
+logistic 0.01 3 magic_train.arff magic_test.arff         > 0.65
+logistic 0.1 0 10 diabetes_train.arff diabetes_test.arff > 0.60
+
+NNet
+nnet 0.001 9 10 magic_train.arff magic_test.arff         > 0.70
+nnet 0.01 10 20 diabetes_train.arff diabetes_test.arff   > 0.60

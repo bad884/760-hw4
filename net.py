@@ -192,7 +192,7 @@ class Net(object):
                 else:
                     num_wrong += 1.0
                 sum_cross_entropy_error += cross_entropy_error
-                self.output_node.delta_j = -self.calc_gradient(instance, output_value)
+                self.output_node.delta_j = -self.calc_delta_j_output(instance, output_value)
                 self.update_weights()
             print('{}\t{}\t{}\t{}'.format(current_epoch, sum_cross_entropy_error, int(num_correct), int(num_wrong)))
             current_epoch += 1
@@ -204,7 +204,7 @@ class Net(object):
             y = 1.0
         return ( (-y * math.log(o)) - ((1.0 - y) * math.log(1.0 - o)) )
 
-    def calc_gradient(self, instance, output_value):
+    def calc_delta_j_output(self, instance, output_value):
         o = output_value
         y = 0.0
         if instance.label == self.labels[1]:
@@ -280,22 +280,24 @@ class NeuralNet(Net):
             hidden_node.update_output()
         self.output_node.update_output()
         output_value = self.output_node.get_output()
-        return self.output_node.get_output()
+        return output_value
 
     def update_weights(self):
         # Update hidden to output layer weights
         for nwp in self.output_node.parent_nwps:
             nwp.delta_w = self.learning_rate * nwp.parent_node.get_output() * self.output_node.delta_j
-            nwp.update_weight()
             # Update hidden node's delta_j
-            nwp.parent_node.delta_j = self.output_node.delta_j
-            # nwp.parent_node.delta_j = ( nwp.parent_node.get_output() * (1 - nwp.parent_node.get_output()) ) * \
-                    # (self.output_node.delta_j * nwp.delta_w)
+            nwp.parent_node.delta_j = ( nwp.parent_node.get_output() * (1 - nwp.parent_node.get_output()) ) * \
+                    (self.output_node.delta_j * nwp.delta_w)
+            nwp.update_weight()
 
         # Update input to hidden layer weights
         for hidden_node in self.hidden_nodes:
             for nwp in hidden_node.parent_nwps:
                 nwp.delta_w = self.learning_rate * nwp.parent_node.get_output() * hidden_node.delta_j
+
+        for hidden_node in self.hidden_nodes:
+            for nwp in hidden_node.parent_nwps:
                 nwp.update_weight()
 
 
@@ -349,6 +351,7 @@ if __name__ == '__main__':
     #     print(instance)
     # print
 
+    # std_train_instances, std_test_instances = train_instances, test_instances
     std_train_instances, std_test_instances = standardize_instances(train_instances, test_instances, attr_names, attr_types, attr_values)
     random.shuffle(std_train_instances)
     random.shuffle(std_test_instances)
@@ -369,14 +372,15 @@ if __name__ == '__main__':
     model.train()
 
     # Run each test instance through model
-    TP = 0.0
-    TN = 0.0
-    FP = 0.0
-    FN = 0.0
-    num_correct = 0.0
-    num_wrong = 0.0
+    TP = 0
+    TN = 0
+    FP = 0
+    FN = 0
+    num_correct = 0
+    num_wrong = 0
     for instance in std_test_instances:
         output_value = model.forward_pass(instance)
+        print('output_value: {}'.format(output_value))
         predicted_label = 0
         if output_value > 0.5:
             predicted_label = 1
@@ -385,24 +389,26 @@ if __name__ == '__main__':
             actual_label = 1
         if predicted_label == 1:
             if actual_label == 1:
-                TP += 1.0
+                TP += 1
             else:
-                FP += 1.0
+                FP += 1
         else:
             if actual_label == 0:
-                TN += 1.0
+                TN += 1
             else:
-                FN += 1.0
+                FN += 1
         if predicted_label == actual_label:
-            num_correct += 1.0
+            num_correct += 1
         else:
-            num_wrong += 1.0
-        print('{:.9f}\t{}\t{}'.format(output_value, int(predicted_label), int(actual_label)))
+            num_wrong += 1
+        print('{:.9f}\t{}\t{}'.format(output_value, predicted_label, actual_label))
 
-    print('{}\t{}'.format(str(int(num_correct)), str(int(num_wrong))))
-    precision = TP / (TP + FP)
-    recall = TP / (TP + FN)
-    f1 = 2 * ((precision * recall) / (precision + recall))
+    print('TP: {}\tTN: {}\tFP: {}\tFN: {}'.format(TP, TN, FP, FN))
+    print('{}\t{}'.format(num_correct, num_wrong))
+    precision = float(TP) / (TP + FP)
+    recall = float(TP) / (TP + FN)
+    print('precision: {}\trecall: {}'.format(precision, recall))
+    f1 = 2 * ( (precision * recall) / (precision + recall) )
     print(f1)
 
 
