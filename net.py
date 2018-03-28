@@ -12,6 +12,7 @@ DEBUG = False
 
 
 def sigmoid(x):
+    # print('sigmoid')
     return 1 / (1 + np.exp(-x))
 
 def create_instances_from_arff_data(train_data, attr_names, attr_types, attr_values):
@@ -103,8 +104,6 @@ def standardize_instances(train_instances, test_instances, attr_names, attr_type
 
 
 class Instance(object):
-    ''' An instance of the dataset. '''
-
     def __init__(self, attributes, label):
         self.attributes = attributes
         self.label = label
@@ -126,8 +125,6 @@ class NodeType(Enum):
 
 
 class Node(object):
-    ''' A node in the net. '''
-
     def __init__(self, node_type):
         self.node_type = node_type
         self.output_value = 0.0
@@ -153,9 +150,8 @@ class Node(object):
     def __repr__(self):
         return '{}:\toutput = {}\tdelta_j = {}'.format(str(self.node_type), str(self.get_output()), str(self.delta_j))
 
-class NodeWeightPair(object):
-    ''' A weight in the net. '''
 
+class NodeWeightPair(object):
     def __init__(self, parent_node, weight):
         self.parent_node = parent_node
         self.weight = weight
@@ -166,8 +162,6 @@ class NodeWeightPair(object):
 
 
 class Net(object):
-    ''' An abstract net. '''
-
     def __init__(self, labels, attr_names, attr_values, train_instances, learning_rate, num_epochs):
         self.labels = labels
         self.attr_names = attr_names
@@ -179,12 +173,17 @@ class Net(object):
     def train(self):
         current_epoch = 1
         while current_epoch <= self.num_epochs:
+            # print('\n==========================================================================')
+            # print('epoch number:\t' + str(current_epoch) + '\n')
             sum_cross_entropy_error = 0.0
             num_correct = 0.0
             num_wrong = 0.0
-            random.shuffle(self.train_instances)
+            # random.shuffle(self.train_instances)
             for instance in self.train_instances:
+            # for instance in self.train_instances[:10]:
+            # for instance in self.train_instances[:20]:
                 output_value = self.forward_pass(instance)
+                # print('\nexpected: {}\t\tactual: {}'.format(str(instance.label), str(output_value)))
                 cross_entropy_error = self.calc_cross_entropy_error(instance, output_value)
                 if ( (output_value < 0.5) and (instance.label == self.labels[0]) ) or \
                    ( (output_value > 0.5) and (instance.label == self.labels[1]) ):
@@ -193,7 +192,10 @@ class Net(object):
                     num_wrong += 1.0
                 sum_cross_entropy_error += cross_entropy_error
                 self.output_node.delta_j = -self.calc_delta_j_output(instance, output_value)
+                # print('output_node.delta_j: {}'.format(str(self.output_node.delta_j)))
+                self.update_delta_ws()
                 self.update_weights()
+            # print
             print('{}\t{}\t{}\t{}'.format(current_epoch, sum_cross_entropy_error, int(num_correct), int(num_wrong)))
             current_epoch += 1
 
@@ -235,11 +237,14 @@ class Logistic(Net):
             self.input_nodes[instance.attributes.index(attr_value) + 1].output_value = attr_value
         self.output_node.update_output()
         output_value = self.output_node.get_output()
-        return self.output_node.get_output()
+        return output_value
+
+    def update_delta_ws(self):
+        for nwp in self.output_node.parent_nwps:
+            nwp.delta_w = self.learning_rate * nwp.parent_node.get_output() * self.output_node.delta_j
 
     def update_weights(self):
         for nwp in self.output_node.parent_nwps:
-            nwp.delta_w = self.learning_rate * nwp.parent_node.get_output() * self.output_node.delta_j
             nwp.update_weight()
 
 
@@ -282,20 +287,23 @@ class NeuralNet(Net):
         output_value = self.output_node.get_output()
         return output_value
 
-    def update_weights(self):
-        # Update hidden to output layer weights
+    def update_delta_ws(self):
+        # Update hidden to output layer delta_w
         for nwp in self.output_node.parent_nwps:
             nwp.delta_w = self.learning_rate * nwp.parent_node.get_output() * self.output_node.delta_j
             # Update hidden node's delta_j
             nwp.parent_node.delta_j = ( nwp.parent_node.get_output() * (1 - nwp.parent_node.get_output()) ) * \
                     (self.output_node.delta_j * nwp.delta_w)
-            nwp.update_weight()
-
-        # Update input to hidden layer weights
+        # Update input to hidden layer delta_w
         for hidden_node in self.hidden_nodes:
             for nwp in hidden_node.parent_nwps:
                 nwp.delta_w = self.learning_rate * nwp.parent_node.get_output() * hidden_node.delta_j
 
+    def update_weights(self):
+        # Update hidden to output layer weights
+        for nwp in self.output_node.parent_nwps:
+            nwp.update_weight()
+        # Update input to hidden layer weights
         for hidden_node in self.hidden_nodes:
             for nwp in hidden_node.parent_nwps:
                 nwp.update_weight()
@@ -372,44 +380,46 @@ if __name__ == '__main__':
     model.train()
 
     # Run each test instance through model
-    TP = 0
-    TN = 0
-    FP = 0
-    FN = 0
-    num_correct = 0
-    num_wrong = 0
-    for instance in std_test_instances:
-        output_value = model.forward_pass(instance)
-        print('output_value: {}'.format(output_value))
-        predicted_label = 0
-        if output_value > 0.5:
-            predicted_label = 1
-        actual_label = 0
-        if instance.label == labels[1]:
-            actual_label = 1
-        if predicted_label == 1:
-            if actual_label == 1:
-                TP += 1
+    TEST = True
+    if TEST:
+        TP = 0
+        TN = 0
+        FP = 0
+        FN = 0
+        num_correct = 0
+        num_wrong = 0
+        for instance in std_test_instances:
+            output_value = model.forward_pass(instance)
+            # print('output_value: {}'.format(output_value))
+            predicted_label = 0
+            if output_value > 0.5:
+                predicted_label = 1
+            actual_label = 0
+            if instance.label == labels[1]:
+                actual_label = 1
+            if predicted_label == 1:
+                if actual_label == 1:
+                    TP += 1
+                else:
+                    FP += 1
             else:
-                FP += 1
-        else:
-            if actual_label == 0:
-                TN += 1
+                if actual_label == 0:
+                    TN += 1
+                else:
+                    FN += 1
+            if predicted_label == actual_label:
+                num_correct += 1
             else:
-                FN += 1
-        if predicted_label == actual_label:
-            num_correct += 1
-        else:
-            num_wrong += 1
-        print('{:.9f}\t{}\t{}'.format(output_value, predicted_label, actual_label))
+                num_wrong += 1
+            print('{:.9f}\t{}\t{}'.format(output_value, predicted_label, actual_label))
 
-    print('TP: {}\tTN: {}\tFP: {}\tFN: {}'.format(TP, TN, FP, FN))
-    print('{}\t{}'.format(num_correct, num_wrong))
-    precision = float(TP) / (TP + FP)
-    recall = float(TP) / (TP + FN)
-    print('precision: {}\trecall: {}'.format(precision, recall))
-    f1 = 2 * ( (precision * recall) / (precision + recall) )
-    print(f1)
+        print('TP: {}\tTN: {}\tFP: {}\tFN: {}'.format(TP, TN, FP, FN))
+        print('{}\t{}'.format(num_correct, num_wrong))
+        precision = float(TP) / (TP + FP)
+        recall = float(TP) / (TP + FN)
+        print('precision: {}\trecall: {}'.format(precision, recall))
+        f1 = 2 * ( (precision * recall) / (precision + recall) )
+        print(f1)
 
 
 
