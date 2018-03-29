@@ -9,7 +9,6 @@ import sys
 
 
 def sigmoid(x):
-    # print('sigmoid({})'.format(x))
     return 1.0 / (1.0 + np.exp(-x))
 
 def create_instances_from_arff_data(data, attr_names, attr_types, attr_values):
@@ -43,36 +42,20 @@ def standardize_instances(train_instances, test_instances, attr_names, attr_type
         for attr_value in instance.attributes:
             if attr_names[instance.attributes.index(attr_value)] in attr_sums.keys():
                 attr_sums[attr_names[instance.attributes.index(attr_value)]] += attr_value
-    # if DEBUG:
-	# print()
-	# for attr_name, _sum in attr_sums.items():
-	    # print('name: {}\tsum = {}'.format(attr_name, _sum))
     # Calculate means
     attr_means = collections.OrderedDict()
     for attr_name, _sum in attr_sums.items():
         attr_means[attr_name] = float(attr_sums[attr_name] / len(train_instances))
-    # if DEBUG:
-	# print()
-	# for attr_name, _mean in attr_means.items():
-	    # print('name: {}\tmean = {}'.format(attr_name, _mean))
     # Find the sum of the squared differences
     for instance in train_instances:
         for attr_value in instance.attributes:
             if attr_names[instance.attributes.index(attr_value)] in attr_means.keys():
                 attr_sum_sq_diffs[attr_names[instance.attributes.index(attr_value)]] += \
                         (attr_value - attr_means[attr_names[instance.attributes.index(attr_value)]])**2
-    # if DEBUG:
-	# print()
-	# for attr_name, _sum_sq_diff in attr_sum_sq_diffs.items():
-	    # print('name: {}\tsum_sq_diff = {}'.format(attr_name, _sum_sq_diff))
     # Calculate standard deviation
     attr_std_devs = collections.OrderedDict()
     for attr_name, _sum in attr_sum_sq_diffs.items():
         attr_std_devs[attr_name] = math.sqrt( float(attr_sum_sq_diffs[attr_name] / len(train_instances)) )
-    # if DEBUG:
-	# print()
-	# for attr_name, _std_dev in attr_std_devs.items():
-	    # print('name: {}\tstd_dev = {}'.format(attr_name, _std_dev))
     # Update train_instances with standardized values
     std_train_instances = []
     for instance in train_instances:
@@ -354,9 +337,7 @@ if __name__ == '__main__':
     train_instances = create_instances_from_arff_data(train_data, attr_names, attr_types, attr_values)
     test_instances = create_instances_from_arff_data(test_data, attr_names, attr_types, attr_values)
 
-    # std_train_instances, std_test_instances = train_instances, test_instances
     std_train_instances, std_test_instances = standardize_instances(train_instances, test_instances, attr_names, attr_types, attr_values)
-
     if not DEBUG:
         random.shuffle(std_train_instances)
         random.shuffle(std_test_instances)
