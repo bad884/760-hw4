@@ -22,7 +22,9 @@ def create_instances_from_arff_data(data, attr_names, attr_types, attr_values):
             if attr_types[attr_names[attrs.index(attr_value)]] == 'numeric':
                 attributes.append(float(attr_value))
             else:
-                attributes.append(attr_value)
+                vals_for_attr = list(attr_values[attr_names[attrs.index(attr_value)]])
+                idx = vals_for_attr.index(attr_value)
+                attributes.append(float(idx))
         class_label = bytes.decode(instance[-1])
         instance = Instance(attributes, class_label)
         instances.append(instance)
@@ -151,7 +153,6 @@ class NodeWeightPair(object):
         self.delta_w = 0.0
 
     def update_weight(self):
-        # self.weight = self.weight - self.delta_w
         self.weight = self.weight + self.delta_w
 
     def __repr__(self):
@@ -335,20 +336,14 @@ if __name__ == '__main__':
     labels = list(train_meta['class'][1])
     attr_names = train_meta.names()[:-1]
 
-    attr_types = collections.OrderedDict()
+    attr_types = attr_values = collections.OrderedDict()
     for attr in train_meta:
         if attr != 'class':
             if train_meta[attr][0] == 'numeric':
                 attr_types[attr] = 'numeric'
-            else:
-                attr_types[attr] = 'nominal'
-
-    attr_values = collections.OrderedDict()
-    for attr in train_meta:
-        if attr != 'class':
-            if train_meta[attr][0] == 'numeric':
                 attr_values[attr] = 'numeric'
             else:
+                attr_types[attr] = 'nominal'
                 attr_values[attr] = train_meta[attr][-1]
 
     # print(labels)
@@ -418,4 +413,7 @@ if __name__ == '__main__':
         print('precision: {}\trecall: {}'.format(precision, recall))
         f1 = 2 * ( (precision * recall) / (precision + recall) )
         print(f1)
+
+
+
 
