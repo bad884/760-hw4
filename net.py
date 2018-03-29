@@ -8,16 +8,15 @@ import random
 import sys
 
 
-DEBUG = False
+# DEBUG = True
 
 
 def sigmoid(x):
-    # print('sigmoid')
-    return 1 / (1 + np.exp(-x))
+    return 1.0 / (1.0 + np.exp(-x))
 
-def create_instances_from_arff_data(train_data, attr_names, attr_types, attr_values):
+def create_instances_from_arff_data(data, attr_names, attr_types, attr_values):
     instances = []
-    for instance in train_data:
+    for instance in data:
         instance = list(instance)
         attrs = instance[:-1]
         attributes = []
@@ -87,7 +86,7 @@ def standardize_instances(train_instances, test_instances, attr_names, attr_type
                 std_attr_values.append(attr_value)
         std_instance = Instance(std_attr_values, instance.label)
         std_train_instances.append(std_instance)
-    # Update train_instances with standardized values
+    # Update test_instances with standardized values
     std_test_instances = []
     for instance in test_instances:
         std_attr_values = []
@@ -131,21 +130,19 @@ class Node(object):
         self.parent_nwps = []
         self.delta_j = 0.0
 
-    def update_output(self):
-        ''' Calculate output for hidden and output nodes. '''
-        self.output_value = 0.0
-        if self.node_type == NodeType.HIDDEN or self.node_type == NodeType.OUTPUT:
+    def get_output(self):
+        if self.node_type == NodeType.INPUT:
+            return self.output_value
+        elif self.node_type == NodeType.BIAS_TO_HIDDEN or self.node_type == NodeType.BIAS_TO_OUTPUT:
+            return 1.0
+        elif self.node_type == NodeType.HIDDEN or self.node_type == NodeType.OUTPUT:
+            self.output_value = 0.0
             for parent_nwp in self.parent_nwps:
                 self.output_value += parent_nwp.parent_node.get_output() * parent_nwp.weight
             self.output_value = sigmoid(self.output_value)
-        else:
-            raise('Updating output for non hidden/output node!')
-
-    def get_output(self):
-        if self.node_type == NodeType.BIAS_TO_HIDDEN or self.node_type == NodeType.BIAS_TO_OUTPUT:
-            return 1.0
-        else:
             return self.output_value
+        else:
+            raise('What kind of node!')
 
     def __repr__(self):
         return '{}:\toutput = {}\tdelta_j = {}'.format(str(self.node_type), str(self.get_output()), str(self.delta_j))
@@ -160,6 +157,10 @@ class NodeWeightPair(object):
     def update_weight(self):
         self.weight = self.weight + self.delta_w
 
+    def __repr__(self):
+        # return '{}:\t{}'.format(self.parent_node, self.weight)
+        return '{}'.format(self.weight)
+
 
 class Net(object):
     def __init__(self, labels, attr_names, attr_values, train_instances, learning_rate, num_epochs):
@@ -173,45 +174,60 @@ class Net(object):
     def train(self):
         current_epoch = 1
         while current_epoch <= self.num_epochs:
-            # print('\n==========================================================================')
-            # print('epoch number:\t' + str(current_epoch) + '\n')
+            if DEBUG:
+                print('\n==========================================================================')
+                print('epoch number:\t' + str(current_epoch))
             sum_cross_entropy_error = 0.0
-            num_correct = 0.0
-            num_wrong = 0.0
-            # random.shuffle(self.train_instances)
+            num_correct = num_wrong = 0
+
+            if DEBUG:
+                self.train_instances = self.train_instances[:10]
+                # self.train_instances = self.train_instances[:2]
+            else:
+                random.shuffle(self.train_instances)
+
             for instance in self.train_instances:
-            # for instance in self.train_instances[:10]:
-            # for instance in self.train_instances[:20]:
-                output_value = self.forward_pass(instance)
-                # print('\nexpected: {}\t\tactual: {}'.format(str(instance.label), str(output_value)))
-                cross_entropy_error = self.calc_cross_entropy_error(instance, output_value)
-                if ( (output_value < 0.5) and (instance.label == self.labels[0]) ) or \
-                   ( (output_value > 0.5) and (instance.label == self.labels[1]) ):
-                    num_correct += 1.0
-                else:
-                    num_wrong += 1.0
-                sum_cross_entropy_error += cross_entropy_error
-                self.output_node.delta_j = -self.calc_delta_j_output(instance, output_value)
-                # print('output_node.delta_j: {}'.format(str(self.output_node.delta_j)))
+                net_output_value = self.forward_pass(instance)
+                sum_cross_entropy_error += self.calc_cross_entropy_error(instance, net_output_value)
+                self.output_node.delta_j = self.calc_delta_j_output(instance, net_output_value)
+                if DEBUG:
+                    print('--------------------------------------------------------------------------')
+                    print('{}\toutput: {}\tdelta_j: {}'.format(str(instance.label), str(net_output_value), str(self.output_node.delta_j)))
                 self.update_delta_ws()
                 self.update_weights()
-            # print
-            print('{}\t{}\t{}\t{}'.format(current_epoch, sum_cross_entropy_error, int(num_correct), int(num_wrong)))
+                # if DEBUG:
+                    # self.print_nodes()
+                    # self.print_bias_node_weights()
+                # Keep track of stats
+                if ((net_output_value < 0.5) and (instance.label == self.labels[0])) or ((net_output_value > 0.5) and (instance.label == self.labels[1])):
+                    num_correct += 1
+                else:
+                    num_wrong += 1
+
+            # Calculate cross entropy across entire epoch
+            # sum_cross_entropy_error = 0.0
+            # for instance in self.train_instances:
+            #     net_output_value = self.forward_pass(instance)
+            #     sum_cross_entropy_error += self.calc_cross_entropy_error(instance, net_output_value)
+
+            if DEBUG:
+                print
+            print('{}\t{}\t{}\t{}'.format(current_epoch, sum_cross_entropy_error, num_correct, num_wrong))
             current_epoch += 1
 
-    def calc_cross_entropy_error(self, instance, output_value):
-        o = output_value
+    def calc_delta_j_output(self, instance, net_output_value):
+        o = net_output_value
+        y = 0.0
+        if instance.label == self.labels[1]:
+            y = 1.0
+        return y - o
+
+    def calc_cross_entropy_error(self, instance, net_output_value):
+        o = net_output_value
         y = 0.0
         if instance.label == self.labels[1]:
             y = 1.0
         return ( (-y * math.log(o)) - ((1.0 - y) * math.log(1.0 - o)) )
-
-    def calc_delta_j_output(self, instance, output_value):
-        o = output_value
-        y = 0.0
-        if instance.label == self.labels[1]:
-            y = 1.0
-        return o - y
 
 
 class Logistic(Net):
@@ -235,9 +251,8 @@ class Logistic(Net):
     def forward_pass(self, instance):
         for attr_value in instance.attributes:
             self.input_nodes[instance.attributes.index(attr_value) + 1].output_value = attr_value
-        self.output_node.update_output()
-        output_value = self.output_node.get_output()
-        return output_value
+        net_output_value = self.output_node.get_output()
+        return net_output_value
 
     def update_delta_ws(self):
         for nwp in self.output_node.parent_nwps:
@@ -253,7 +268,7 @@ class NeuralNet(Net):
         Net.__init__(self, labels, attr_names, attr_values, train_instances, learning_rate, num_epochs)
 	self.num_hidden = num_hidden
 
-        # Create input nodes
+        # Create empty input nodes, update values in forward pass for each instance
         self.input_nodes = []
         bias_to_hidden_node = Node(NodeType.BIAS_TO_HIDDEN)
         self.input_nodes.append(bias_to_hidden_node)
@@ -261,7 +276,7 @@ class NeuralNet(Net):
             input_node = Node(NodeType.INPUT)
             self.input_nodes.append(input_node)
 
-        # Create hidden nodes
+        # Create hidden nodes and link it to all the input nodes with random weights
         self.hidden_nodes = []
         bias_to_output_node = Node(NodeType.BIAS_TO_OUTPUT)
         self.hidden_nodes.append(bias_to_output_node)
@@ -282,19 +297,18 @@ class NeuralNet(Net):
         for attr_value in instance.attributes:
             self.input_nodes[instance.attributes.index(attr_value) + 1].output_value = attr_value
         for hidden_node in self.hidden_nodes[1:]:
-            hidden_node.update_output()
-        self.output_node.update_output()
-        output_value = self.output_node.get_output()
-        return output_value
+            hidden_node.get_output()
+        net_output_value = self.output_node.get_output()
+        return net_output_value
 
     def update_delta_ws(self):
-        # Update hidden to output layer delta_w
+        # Update hidden to output layer delta_ws
         for nwp in self.output_node.parent_nwps:
             nwp.delta_w = self.learning_rate * nwp.parent_node.get_output() * self.output_node.delta_j
             # Update hidden node's delta_j
-            nwp.parent_node.delta_j = ( nwp.parent_node.get_output() * (1 - nwp.parent_node.get_output()) ) * \
-                    (self.output_node.delta_j * nwp.delta_w)
-        # Update input to hidden layer delta_w
+            hidden_node = nwp.parent_node
+            hidden_node.delta_j = ( hidden_node.get_output() * (1 - hidden_node.get_output()) ) * (self.output_node.delta_j * nwp.weight)
+        # Update input to hidden layer delta_ws
         for hidden_node in self.hidden_nodes:
             for nwp in hidden_node.parent_nwps:
                 nwp.delta_w = self.learning_rate * nwp.parent_node.get_output() * hidden_node.delta_j
@@ -308,10 +322,29 @@ class NeuralNet(Net):
             for nwp in hidden_node.parent_nwps:
                 nwp.update_weight()
 
+    def print_nodes(self):
+        print('\ninput_nodes')
+        for input_node in self.input_nodes:
+            print(input_node)
+        print('\nhidden_nodes')
+        for hidden_node in self.hidden_nodes:
+            print(hidden_node)
+        print('\noutput_node')
+        print(self.output_node)
+
+    def print_bias_node_weights(self):
+        print('\nbias_to_hidden')
+        for hidden_node in self.hidden_nodes[1:]:
+            print(hidden_node.parent_nwps[0])
+        print('\nbias_to_output')
+        print(self.output_node.parent_nwps[0].weight)
+
 
 if __name__ == '__main__':
     # 0      1   2     3    4    5      6
     # net.py l/n train test rate epochs num_hidden
+
+    DEBUG = False
 
     num_epochs = int(sys.argv[5])
     learning_rate = float(sys.argv[4])
@@ -351,37 +384,25 @@ if __name__ == '__main__':
     # Create, standardize, and randomize training and testing instances
     train_instances = create_instances_from_arff_data(train_data, attr_names, attr_types, attr_values)
     test_instances = create_instances_from_arff_data(test_data, attr_names, attr_types, attr_values)
-
-    # for instance in train_instances[:10]:
-    #     print(instance)
-    # print
-    # for instance in test_instances[:10]:
-    #     print(instance)
-    # print
-
-    # std_train_instances, std_test_instances = train_instances, test_instances
     std_train_instances, std_test_instances = standardize_instances(train_instances, test_instances, attr_names, attr_types, attr_values)
-    random.shuffle(std_train_instances)
-    random.shuffle(std_test_instances)
-
-    # for instance in std_train_instances[:10]:
-    #     print(instance)
-    # print
-    # for instance in std_test_instances[:10]:
-    #     print(instance)
+    if not DEBUG:
+        random.shuffle(std_train_instances)
+        random.shuffle(std_test_instances)
 
     # Logistic Regression
     if sys.argv[1] == 'l':
         model = Logistic(labels, attr_names, attr_values, std_train_instances, learning_rate, num_epochs)
+
     # Neural Net
     elif sys.argv[1] == 'n':
 	num_hidden = int(sys.argv[6])
         model = NeuralNet(labels, attr_names, attr_values, std_train_instances, learning_rate, num_epochs, num_hidden)
+
     model.train()
 
     # Run each test instance through model
-    TEST = True
-    if TEST:
+    TEST = False
+    if TEST and not DEBUG:
         TP = 0
         TN = 0
         FP = 0
@@ -389,10 +410,10 @@ if __name__ == '__main__':
         num_correct = 0
         num_wrong = 0
         for instance in std_test_instances:
-            output_value = model.forward_pass(instance)
-            # print('output_value: {}'.format(output_value))
+            net_output_value = model.forward_pass(instance)
+            # print('net_output_value: {}'.format(net_output_value))
             predicted_label = 0
-            if output_value > 0.5:
+            if net_output_value > 0.5:
                 predicted_label = 1
             actual_label = 0
             if instance.label == labels[1]:
@@ -411,7 +432,7 @@ if __name__ == '__main__':
                 num_correct += 1
             else:
                 num_wrong += 1
-            print('{:.9f}\t{}\t{}'.format(output_value, predicted_label, actual_label))
+            print('{:.9f}\t{}\t{}'.format(net_output_value, predicted_label, actual_label))
 
         print('TP: {}\tTN: {}\tFP: {}\tFN: {}'.format(TP, TN, FP, FN))
         print('{}\t{}'.format(num_correct, num_wrong))
@@ -420,6 +441,3 @@ if __name__ == '__main__':
         print('precision: {}\trecall: {}'.format(precision, recall))
         f1 = 2 * ( (precision * recall) / (precision + recall) )
         print(f1)
-
-
-
