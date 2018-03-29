@@ -153,8 +153,8 @@ class NodeWeightPair(object):
         self.delta_w = 0.0
 
     def update_weight(self):
+        # self.weight = self.weight - self.delta_w
         self.weight = self.weight + self.delta_w
-        # self.delta_w = 0.0
 
     def __repr__(self):
         return '{} to {}:\t{}\t\t{}\t\t{}'.format(self.parent_node.node_type.name, self.child_node.node_type.name, self.parent_node.get_output(), self.weight, self.delta_w)
@@ -181,9 +181,9 @@ class Net(object):
             num_correct = num_wrong = 0
 
             if DEBUG:
-                # self.train_instances = self.train_instances[:10]
+                self.train_instances = self.train_instances[:10]
                 # self.train_instances = self.train_instances[:1]
-                self.train_instances = self.train_instances[:2]
+                # self.train_instances = self.train_instances[:2]
             else:
                 random.shuffle(self.train_instances)
 
@@ -225,119 +225,59 @@ class NeuralNet(Net):
         Net.__init__(self, labels, attr_names, attr_values, train_instances, learning_rate, num_epochs)
 	self.num_hidden = num_hidden
 
-        PART1 = False
-        if PART1:
-            self.input_nodes = []
-            bi = Node(NodeType.BIAS_)
-            self.input_nodes.append(bi)
-            for _ in range(len(attr_names)):
-                input_node = Node(NodeType.INPUT)
-                self.input_nodes.append(input_node)
-            # bh
-            self.hidden_nodes = []
-            bh = Node(NodeType.BIAS_)
-            self.hidden_nodes.append(bh)
-            # h1
-            h1 = Node(NodeType.HIDDEN)
-            nwp = NodeWeightPair(self.input_nodes[0], h1, 1.0); h1.parent_nwps.append(nwp)
-            nwp = NodeWeightPair(self.input_nodes[1], h1, 2.0); h1.parent_nwps.append(nwp)
-            nwp = NodeWeightPair(self.input_nodes[2], h1, 3.0); h1.parent_nwps.append(nwp)
-            nwp = NodeWeightPair(self.input_nodes[3], h1, -2.0); h1.parent_nwps.append(nwp)
-            nwp = NodeWeightPair(self.input_nodes[4], h1, 1.0); h1.parent_nwps.append(nwp)
-            self.hidden_nodes.append(h1)
-            # h2
-            h2 = Node(NodeType.HIDDEN)
-            nwp = NodeWeightPair(self.input_nodes[0], h2, 2.0); h2.parent_nwps.append(nwp)
-            nwp = NodeWeightPair(self.input_nodes[1], h2, 3.0); h2.parent_nwps.append(nwp)
-            nwp = NodeWeightPair(self.input_nodes[2], h2, 1.0); h2.parent_nwps.append(nwp)
-            nwp = NodeWeightPair(self.input_nodes[3], h2, 4.0); h2.parent_nwps.append(nwp)
-            nwp = NodeWeightPair(self.input_nodes[4], h2, 1.0); h2.parent_nwps.append(nwp)
-            self.hidden_nodes.append(h2)
-            # h3
-            h3 = Node(NodeType.HIDDEN)
-            nwp = NodeWeightPair(self.input_nodes[0], h3, -1.0); h3.parent_nwps.append(nwp)
-            nwp = NodeWeightPair(self.input_nodes[1], h3, 1.0); h3.parent_nwps.append(nwp)
-            nwp = NodeWeightPair(self.input_nodes[2], h3, -2.0); h3.parent_nwps.append(nwp)
-            nwp = NodeWeightPair(self.input_nodes[3], h3, 0.0); h3.parent_nwps.append(nwp)
-            nwp = NodeWeightPair(self.input_nodes[4], h3, 3.0); h3.parent_nwps.append(nwp)
-            self.hidden_nodes.append(h3)
-            # o
-            self.output_node = Node(NodeType.OUTPUT)
-            nwp = NodeWeightPair(self.hidden_nodes[0], self.output_node, 1.0); self.output_node.parent_nwps.append(nwp)
-            nwp = NodeWeightPair(self.hidden_nodes[1], self.output_node, 3.0); self.output_node.parent_nwps.append(nwp)
-            nwp = NodeWeightPair(self.hidden_nodes[2], self.output_node, 2.0); self.output_node.parent_nwps.append(nwp)
-            nwp = NodeWeightPair(self.hidden_nodes[3], self.output_node, 1.0); self.output_node.parent_nwps.append(nwp)
-            for input_node in self.input_nodes:
-                print(input_node)
-            for i, attr_value in enumerate(self.train_instances[0].attributes):
-                print('{}\t{}'.format(i + 1, attr_value))
-                self.input_nodes[i + 1].output_value = attr_value
-            for input_node in self.input_nodes:
-                print(input_node)
-        else:
-            # Create empty input nodes, update values in forward pass for each instance
-            self.input_nodes = []
-            bias_to_hidden_node = Node(NodeType.BIAS_)
-            self.input_nodes.append(bias_to_hidden_node)
-            for _ in range(len(attr_names)):
-                input_node = Node(NodeType.INPUT)
-                self.input_nodes.append(input_node)
+        # Create empty input nodes, update values in forward pass for each instance
+        self.input_nodes = []
+        bias_to_hidden_node = Node(NodeType.BIAS_)
+        self.input_nodes.append(bias_to_hidden_node)
+        for _ in range(len(attr_names)):
+            input_node = Node(NodeType.INPUT)
+            self.input_nodes.append(input_node)
 
-            # Create hidden nodes and link it to all the input nodes with random weights
-            self.hidden_nodes = []
-            bias_to_output_node = Node(NodeType.BIAS_)
-            self.hidden_nodes.append(bias_to_output_node)
-            for _ in range(self.num_hidden):
-                hidden_node = Node(NodeType.HIDDEN)
-                for input_node in self.input_nodes:
-                    nwp = NodeWeightPair(input_node, hidden_node, random.choice([-0.01,0.01]))
-                    hidden_node.parent_nwps.append(nwp)
-                self.hidden_nodes.append(hidden_node)
+        # Create hidden nodes and link it to all the input nodes with random weights
+        self.hidden_nodes = []
+        bias_to_output_node = Node(NodeType.BIAS_)
+        self.hidden_nodes.append(bias_to_output_node)
+        for _ in range(self.num_hidden):
+            hidden_node = Node(NodeType.HIDDEN)
+            for input_node in self.input_nodes:
+                nwp = NodeWeightPair(input_node, hidden_node, random.choice([-0.01,0.01]))
+                hidden_node.parent_nwps.append(nwp)
+            self.hidden_nodes.append(hidden_node)
 
-            # Create output node and link it to all the hidden nodes with random weights
-            self.output_node = Node(NodeType.OUTPUT)
-            for hidden_node in self.hidden_nodes:
-                nwp = NodeWeightPair(hidden_node, self.output_node, random.choice([-0.01,0.01]))
-                self.output_node.parent_nwps.append(nwp)
+        # Create output node and link it to all the hidden nodes with random weights
+        self.output_node = Node(NodeType.OUTPUT)
+        for hidden_node in self.hidden_nodes:
+            nwp = NodeWeightPair(hidden_node, self.output_node, random.choice([-0.01,0.01]))
+            self.output_node.parent_nwps.append(nwp)
 
     def forward_pass(self, instance):
-        # for input_node in self.input_nodes:
-        #     print(input_node)
-        # print(instance.attributes)
         for i, attr_value in enumerate(instance.attributes):
             self.input_nodes[i + 1].output_value = attr_value
-        # for input_node in self.input_nodes:
-        #     print(input_node)
         for hidden_node in self.hidden_nodes:
             hidden_node.get_output()
         return self.output_node.get_output()
 
     def backward_pass(self):
-        # Update hidden to output layer delta_ws
         for nwp in self.output_node.parent_nwps:
             hidden_node = nwp.parent_node
             nwp.delta_w = self.learning_rate * hidden_node.get_output() * self.output_node.delta_j
-            # Update hidden node's delta_j
             hidden_node.delta_j = ( hidden_node.get_output() * (1 - hidden_node.get_output()) ) * (self.output_node.delta_j * nwp.weight)
-        # Update input to hidden layer delta_ws
         for hidden_node in self.hidden_nodes:
             for nwp in hidden_node.parent_nwps:
                 nwp.delta_w = self.learning_rate * nwp.parent_node.get_output() * hidden_node.delta_j
 
     def update_weights(self):
-        # Update hidden to output layer weights
         for nwp in self.output_node.parent_nwps:
             nwp.update_weight()
-        # Update input to hidden layer weights
         for hidden_node in self.hidden_nodes:
             for nwp in hidden_node.parent_nwps:
                 nwp.update_weight()
 
     def print_net(self):
-        for hidden_node in self.hidden_nodes[1:]:
-            print
-            for nwp in hidden_node.parent_nwps:
-                print(nwp)
+        # for hidden_node in self.hidden_nodes[1:]:
+        #     print
+        #     for nwp in hidden_node.parent_nwps:
+        #         print(nwp)
         print
         for nwp in self.output_node.parent_nwps:
             print(nwp)
@@ -484,3 +424,4 @@ if __name__ == '__main__':
         print('precision: {}\trecall: {}'.format(precision, recall))
         f1 = 2 * ( (precision * recall) / (precision + recall) )
         print(f1)
+
