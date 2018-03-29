@@ -1,0 +1,8 @@
+@relation part1
+@attribute 'x1' numeric
+@attribute 'x2' numeric
+@attribute 'x3' numeric
+@attribute 'x4' numeric
+@attribute 'class' { negative, positive }
+@data
+1,3,2,1,positive

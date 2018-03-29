@@ -8,10 +8,8 @@ import random
 import sys
 
 
-# DEBUG = True
-
-
 def sigmoid(x):
+    # print('sigmoid({})'.format(x))
     return 1.0 / (1.0 + np.exp(-x))
 
 def create_instances_from_arff_data(data, attr_names, attr_types, attr_values):
@@ -117,10 +115,9 @@ class Instance(object):
 
 class NodeType(Enum):
     INPUT = 0
-    BIAS_TO_HIDDEN = 1
+    BIAS_ = 1
     HIDDEN = 2
-    BIAS_TO_OUTPUT = 3
-    OUTPUT = 4
+    OUTPUT = 3
 
 
 class Node(object):
@@ -133,31 +130,34 @@ class Node(object):
     def get_output(self):
         if self.node_type == NodeType.INPUT:
             return self.output_value
-        elif self.node_type == NodeType.BIAS_TO_HIDDEN or self.node_type == NodeType.BIAS_TO_OUTPUT:
+        elif self.node_type == NodeType.BIAS_:
             return 1.0
         elif self.node_type == NodeType.HIDDEN or self.node_type == NodeType.OUTPUT:
             self.output_value = 0.0
+            # print
             for parent_nwp in self.parent_nwps:
+                # print('{} to {}:\t{}\t{}'.format(parent_nwp.parent_node.node_type.name, parent_nwp.child_node.node_type.name, parent_nwp.parent_node.get_output(), parent_nwp.weight))
                 self.output_value += parent_nwp.parent_node.get_output() * parent_nwp.weight
             self.output_value = sigmoid(self.output_value)
             return self.output_value
 
     def __repr__(self):
-        return '{}:\toutput = {}\tdelta_j = {}'.format(str(self.node_type), str(self.get_output()), str(self.delta_j))
+        return '{}:\t\toutput = {}\t\tdelta_j = {}'.format(self.node_type.name, self.get_output(), self.delta_j)
 
 
 class NodeWeightPair(object):
-    def __init__(self, parent_node, weight):
+    def __init__(self, parent_node, child_node, weight):
         self.parent_node = parent_node
+        self.child_node = child_node
         self.weight = weight
         self.delta_w = 0.0
 
     def update_weight(self):
         self.weight = self.weight + self.delta_w
+        # self.delta_w = 0.0
 
     def __repr__(self):
-        # return '{}:\t{}'.format(self.parent_node, self.weight)
-        return '{}'.format(self.weight)
+        return '{} to {}:\t{}\t\t{}\t\t{}'.format(self.parent_node.node_type.name, self.child_node.node_type.name, self.parent_node.get_output(), self.weight, self.delta_w)
 
 
 class Net(object):
@@ -172,10 +172,10 @@ class Net(object):
     def train(self):
         current_epoch = 1
         if DEBUG:
-            self.print_debug()
+            self.print_net()
         while current_epoch <= self.num_epochs:
             if DEBUG:
-                print('\n===============================================================================================================================================')
+                print('\n=====================================================================')
                 print('epoch number:\t' + str(current_epoch))
             sum_cross_entropy_error = 0.0
             num_correct = num_wrong = 0
@@ -192,19 +192,16 @@ class Net(object):
                 sum_cross_entropy_error += self.calc_cross_entropy_error(instance, net_output_value)
                 self.output_node.delta_j = self.calc_delta_j_output(instance, net_output_value)
                 if DEBUG:
-                    print('-----------------------------------------------------------------------------------------------------------------------------------------------')
-                    print('{}\toutput: {}\tdelta_j: {}'.format(str(instance.label), str(net_output_value), str(self.output_node.delta_j)))
-                self.update_delta_ws()
+                    print('------------------------------------------------------------------------')
+                    print('actual_class: {}\t\toutput: {}\toutput_node.delta_j: {}'.format(str(instance.label), str(net_output_value), str(self.output_node.delta_j)))
+                self.backward_pass()
                 self.update_weights()
                 if DEBUG:
-                    self.print_debug()
-                # Keep track of stats
+                    self.print_net()
                 if ((net_output_value < 0.5) and (instance.label == self.labels[0])) or ((net_output_value > 0.5) and (instance.label == self.labels[1])):
                     num_correct += 1
                 else:
                     num_wrong += 1
-            if DEBUG:
-                print
             print('{}\t{}\t{}\t{}'.format(current_epoch, sum_cross_entropy_error, num_correct, num_wrong))
             current_epoch += 1
 
@@ -223,81 +220,100 @@ class Net(object):
         return ( (-y * math.log(o)) - ((1.0 - y) * math.log(1.0 - o)) )
 
 
-class Logistic(Net):
-    def __init__(self, labels, attr_names, attr_values, train_instances, learning_rate, num_epochs):
-        Net.__init__(self, labels, attr_names, attr_values, train_instances, learning_rate, num_epochs)
-
-        # Create input nodes
-        self.input_nodes = []
-        bias_to_output_node = Node(NodeType.BIAS_TO_OUTPUT)
-        self.input_nodes.append(bias_to_output_node)
-        for _ in range(len(attr_names)):
-            input_node = Node(NodeType.INPUT)
-            self.input_nodes.append(input_node)
-
-        # Create output node and link it to all the input nodes with random weights
-        self.output_node = Node(NodeType.OUTPUT)
-        for input_node in self.input_nodes:
-            nwp = NodeWeightPair(input_node, random.choice([-0.01,0.01]))
-            self.output_node.parent_nwps.append(nwp)
-
-    def forward_pass(self, instance):
-        for attr_value in instance.attributes:
-            self.input_nodes[instance.attributes.index(attr_value) + 1].output_value = attr_value
-        net_output_value = self.output_node.get_output()
-        return net_output_value
-
-    def update_delta_ws(self):
-        for nwp in self.output_node.parent_nwps:
-            nwp.delta_w = self.learning_rate * nwp.parent_node.get_output() * self.output_node.delta_j
-
-    def update_weights(self):
-        for nwp in self.output_node.parent_nwps:
-            nwp.update_weight()
-
-
 class NeuralNet(Net):
     def __init__(self, labels, attr_names, attr_values, train_instances, learning_rate, num_epochs, num_hidden):
         Net.__init__(self, labels, attr_names, attr_values, train_instances, learning_rate, num_epochs)
 	self.num_hidden = num_hidden
 
-        # Create empty input nodes, update values in forward pass for each instance
-        self.input_nodes = []
-        bias_to_hidden_node = Node(NodeType.BIAS_TO_HIDDEN)
-        self.input_nodes.append(bias_to_hidden_node)
-        for _ in range(len(attr_names)):
-            input_node = Node(NodeType.INPUT)
-            self.input_nodes.append(input_node)
-
-        # Create hidden nodes and link it to all the input nodes with random weights
-        self.hidden_nodes = []
-        bias_to_output_node = Node(NodeType.BIAS_TO_OUTPUT)
-        self.hidden_nodes.append(bias_to_output_node)
-        for _ in range(self.num_hidden):
-            hidden_node = Node(NodeType.HIDDEN)
+        PART1 = False
+        if PART1:
+            self.input_nodes = []
+            bi = Node(NodeType.BIAS_)
+            self.input_nodes.append(bi)
+            for _ in range(len(attr_names)):
+                input_node = Node(NodeType.INPUT)
+                self.input_nodes.append(input_node)
+            # bh
+            self.hidden_nodes = []
+            bh = Node(NodeType.BIAS_)
+            self.hidden_nodes.append(bh)
+            # h1
+            h1 = Node(NodeType.HIDDEN)
+            nwp = NodeWeightPair(self.input_nodes[0], h1, 1.0); h1.parent_nwps.append(nwp)
+            nwp = NodeWeightPair(self.input_nodes[1], h1, 2.0); h1.parent_nwps.append(nwp)
+            nwp = NodeWeightPair(self.input_nodes[2], h1, 3.0); h1.parent_nwps.append(nwp)
+            nwp = NodeWeightPair(self.input_nodes[3], h1, -2.0); h1.parent_nwps.append(nwp)
+            nwp = NodeWeightPair(self.input_nodes[4], h1, 1.0); h1.parent_nwps.append(nwp)
+            self.hidden_nodes.append(h1)
+            # h2
+            h2 = Node(NodeType.HIDDEN)
+            nwp = NodeWeightPair(self.input_nodes[0], h2, 2.0); h2.parent_nwps.append(nwp)
+            nwp = NodeWeightPair(self.input_nodes[1], h2, 3.0); h2.parent_nwps.append(nwp)
+            nwp = NodeWeightPair(self.input_nodes[2], h2, 1.0); h2.parent_nwps.append(nwp)
+            nwp = NodeWeightPair(self.input_nodes[3], h2, 4.0); h2.parent_nwps.append(nwp)
+            nwp = NodeWeightPair(self.input_nodes[4], h2, 1.0); h2.parent_nwps.append(nwp)
+            self.hidden_nodes.append(h2)
+            # h3
+            h3 = Node(NodeType.HIDDEN)
+            nwp = NodeWeightPair(self.input_nodes[0], h3, -1.0); h3.parent_nwps.append(nwp)
+            nwp = NodeWeightPair(self.input_nodes[1], h3, 1.0); h3.parent_nwps.append(nwp)
+            nwp = NodeWeightPair(self.input_nodes[2], h3, -2.0); h3.parent_nwps.append(nwp)
+            nwp = NodeWeightPair(self.input_nodes[3], h3, 0.0); h3.parent_nwps.append(nwp)
+            nwp = NodeWeightPair(self.input_nodes[4], h3, 3.0); h3.parent_nwps.append(nwp)
+            self.hidden_nodes.append(h3)
+            # o
+            self.output_node = Node(NodeType.OUTPUT)
+            nwp = NodeWeightPair(self.hidden_nodes[0], self.output_node, 1.0); self.output_node.parent_nwps.append(nwp)
+            nwp = NodeWeightPair(self.hidden_nodes[1], self.output_node, 3.0); self.output_node.parent_nwps.append(nwp)
+            nwp = NodeWeightPair(self.hidden_nodes[2], self.output_node, 2.0); self.output_node.parent_nwps.append(nwp)
+            nwp = NodeWeightPair(self.hidden_nodes[3], self.output_node, 1.0); self.output_node.parent_nwps.append(nwp)
             for input_node in self.input_nodes:
-                nwp = NodeWeightPair(input_node, random.choice([-0.01,0.01]))
-                hidden_node.parent_nwps.append(nwp)
-            self.hidden_nodes.append(hidden_node)
+                print(input_node)
+            for i, attr_value in enumerate(self.train_instances[0].attributes):
+                print('{}\t{}'.format(i + 1, attr_value))
+                self.input_nodes[i + 1].output_value = attr_value
+            for input_node in self.input_nodes:
+                print(input_node)
+        else:
+            # Create empty input nodes, update values in forward pass for each instance
+            self.input_nodes = []
+            bias_to_hidden_node = Node(NodeType.BIAS_)
+            self.input_nodes.append(bias_to_hidden_node)
+            for _ in range(len(attr_names)):
+                input_node = Node(NodeType.INPUT)
+                self.input_nodes.append(input_node)
 
-        # Create output node and link it to all the hidden nodes with random weights
-        self.output_node = Node(NodeType.OUTPUT)
-        for hidden_node in self.hidden_nodes:
-            nwp = NodeWeightPair(hidden_node, random.choice([-0.01,0.01]))
-            self.output_node.parent_nwps.append(nwp)
+            # Create hidden nodes and link it to all the input nodes with random weights
+            self.hidden_nodes = []
+            bias_to_output_node = Node(NodeType.BIAS_)
+            self.hidden_nodes.append(bias_to_output_node)
+            for _ in range(self.num_hidden):
+                hidden_node = Node(NodeType.HIDDEN)
+                for input_node in self.input_nodes:
+                    nwp = NodeWeightPair(input_node, hidden_node, random.choice([-0.01,0.01]))
+                    hidden_node.parent_nwps.append(nwp)
+                self.hidden_nodes.append(hidden_node)
+
+            # Create output node and link it to all the hidden nodes with random weights
+            self.output_node = Node(NodeType.OUTPUT)
+            for hidden_node in self.hidden_nodes:
+                nwp = NodeWeightPair(hidden_node, self.output_node, random.choice([-0.01,0.01]))
+                self.output_node.parent_nwps.append(nwp)
 
     def forward_pass(self, instance):
-        for attr_value in instance.attributes:
-            self.input_nodes[instance.attributes.index(attr_value) + 1].output_value = attr_value
+        # for input_node in self.input_nodes:
+        #     print(input_node)
+        # print(instance.attributes)
+        for i, attr_value in enumerate(instance.attributes):
+            self.input_nodes[i + 1].output_value = attr_value
+        # for input_node in self.input_nodes:
+        #     print(input_node)
         for hidden_node in self.hidden_nodes:
             hidden_node.get_output()
-        net_output_value = self.output_node.get_output()
-        return net_output_value
+        return self.output_node.get_output()
 
-    def update_delta_ws(self):
+    def backward_pass(self):
         # Update hidden to output layer delta_ws
-        if DEBUG:
-            print()
         for nwp in self.output_node.parent_nwps:
             hidden_node = nwp.parent_node
             nwp.delta_w = self.learning_rate * hidden_node.get_output() * self.output_node.delta_j
@@ -317,34 +333,56 @@ class NeuralNet(Net):
             for nwp in hidden_node.parent_nwps:
                 nwp.update_weight()
 
-    def print_debug(self):
-        # print('\ninput_nodes')
-        # for input_node in self.input_nodes:
-        #     print(input_node)
-        # print('\nbias_to_hidden_weights')
-        # for hidden_node in self.hidden_nodes[1:]:
-        #     print(hidden_node.parent_nwps[0])
-        print('\ninput_to_hidden_weights')
+    def print_net(self):
         for hidden_node in self.hidden_nodes[1:]:
+            print
             for nwp in hidden_node.parent_nwps:
                 print(nwp)
-        # print('\nhidden_nodes')
-        # for hidden_node in self.hidden_nodes:
-        #     print(hidden_node)
-        # print('\nbias_to_output_weight')
-        # print(self.output_node.parent_nwps[0].weight)
-        print('\nhidden_to_output_weights')
+        print
         for nwp in self.output_node.parent_nwps:
             print(nwp)
-        print('\noutput_node')
+        print
         print(self.output_node)
+
+
+class Logistic(Net):
+    def __init__(self, labels, attr_names, attr_values, train_instances, learning_rate, num_epochs):
+        Net.__init__(self, labels, attr_names, attr_values, train_instances, learning_rate, num_epochs)
+
+        # Create input nodes
+        self.input_nodes = []
+        bias_to_output_node = Node(NodeType.BIAS_)
+        self.input_nodes.append(bias_to_output_node)
+        for _ in range(len(attr_names)):
+            input_node = Node(NodeType.INPUT)
+            self.input_nodes.append(input_node)
+
+        # Create output node and link it to all the input nodes with random weights
+        self.output_node = Node(NodeType.OUTPUT)
+        for input_node in self.input_nodes:
+            nwp = NodeWeightPair(input_node, self.output_node, random.choice([-0.01,0.01]))
+            self.output_node.parent_nwps.append(nwp)
+
+    def forward_pass(self, instance):
+        for i, attr_value in enumerate(instance.attributes):
+            self.input_nodes[i + 1].output_value = attr_value
+        net_output_value = self.output_node.get_output()
+        return net_output_value
+
+    def backward_pass(self):
+        for nwp in self.output_node.parent_nwps:
+            nwp.delta_w = self.learning_rate * nwp.parent_node.get_output() * self.output_node.delta_j
+
+    def update_weights(self):
+        for nwp in self.output_node.parent_nwps:
+            nwp.update_weight()
 
 
 if __name__ == '__main__':
     # 0      1   2     3    4    5      6
     # net.py l/n train test rate epochs num_hidden
 
-    DEBUG = True
+    DEBUG = False
 
     num_epochs = int(sys.argv[5])
     learning_rate = float(sys.argv[4])
@@ -384,7 +422,12 @@ if __name__ == '__main__':
     # Create, standardize, and randomize training and testing instances
     train_instances = create_instances_from_arff_data(train_data, attr_names, attr_types, attr_values)
     test_instances = create_instances_from_arff_data(test_data, attr_names, attr_types, attr_values)
+
+    # std_train_instances, std_test_instances = train_instances, test_instances
     std_train_instances, std_test_instances = standardize_instances(train_instances, test_instances, attr_names, attr_types, attr_values)
+
+    # random.shuffle(std_train_instances)
+
     if not DEBUG:
         random.shuffle(std_train_instances)
         random.shuffle(std_test_instances)
@@ -401,7 +444,7 @@ if __name__ == '__main__':
     model.train()
 
     # Run each test instance through model
-    TEST = False
+    TEST = True
     if TEST and not DEBUG:
         TP = 0
         TN = 0
