@@ -141,8 +141,6 @@ class Node(object):
                 self.output_value += parent_nwp.parent_node.get_output() * parent_nwp.weight
             self.output_value = sigmoid(self.output_value)
             return self.output_value
-        else:
-            raise('What kind of node!')
 
     def __repr__(self):
         return '{}:\toutput = {}\tdelta_j = {}'.format(str(self.node_type), str(self.get_output()), str(self.delta_j))
@@ -173,16 +171,19 @@ class Net(object):
 
     def train(self):
         current_epoch = 1
+        if DEBUG:
+            self.print_debug()
         while current_epoch <= self.num_epochs:
             if DEBUG:
-                print('\n==========================================================================')
+                print('\n===============================================================================================================================================')
                 print('epoch number:\t' + str(current_epoch))
             sum_cross_entropy_error = 0.0
             num_correct = num_wrong = 0
 
             if DEBUG:
-                self.train_instances = self.train_instances[:10]
-                # self.train_instances = self.train_instances[:2]
+                # self.train_instances = self.train_instances[:10]
+                # self.train_instances = self.train_instances[:1]
+                self.train_instances = self.train_instances[:2]
             else:
                 random.shuffle(self.train_instances)
 
@@ -191,25 +192,17 @@ class Net(object):
                 sum_cross_entropy_error += self.calc_cross_entropy_error(instance, net_output_value)
                 self.output_node.delta_j = self.calc_delta_j_output(instance, net_output_value)
                 if DEBUG:
-                    print('--------------------------------------------------------------------------')
+                    print('-----------------------------------------------------------------------------------------------------------------------------------------------')
                     print('{}\toutput: {}\tdelta_j: {}'.format(str(instance.label), str(net_output_value), str(self.output_node.delta_j)))
                 self.update_delta_ws()
                 self.update_weights()
-                # if DEBUG:
-                    # self.print_nodes()
-                    # self.print_bias_node_weights()
+                if DEBUG:
+                    self.print_debug()
                 # Keep track of stats
                 if ((net_output_value < 0.5) and (instance.label == self.labels[0])) or ((net_output_value > 0.5) and (instance.label == self.labels[1])):
                     num_correct += 1
                 else:
                     num_wrong += 1
-
-            # Calculate cross entropy across entire epoch
-            # sum_cross_entropy_error = 0.0
-            # for instance in self.train_instances:
-            #     net_output_value = self.forward_pass(instance)
-            #     sum_cross_entropy_error += self.calc_cross_entropy_error(instance, net_output_value)
-
             if DEBUG:
                 print
             print('{}\t{}\t{}\t{}'.format(current_epoch, sum_cross_entropy_error, num_correct, num_wrong))
@@ -296,17 +289,19 @@ class NeuralNet(Net):
     def forward_pass(self, instance):
         for attr_value in instance.attributes:
             self.input_nodes[instance.attributes.index(attr_value) + 1].output_value = attr_value
-        for hidden_node in self.hidden_nodes[1:]:
+        for hidden_node in self.hidden_nodes:
             hidden_node.get_output()
         net_output_value = self.output_node.get_output()
         return net_output_value
 
     def update_delta_ws(self):
         # Update hidden to output layer delta_ws
+        if DEBUG:
+            print()
         for nwp in self.output_node.parent_nwps:
-            nwp.delta_w = self.learning_rate * nwp.parent_node.get_output() * self.output_node.delta_j
-            # Update hidden node's delta_j
             hidden_node = nwp.parent_node
+            nwp.delta_w = self.learning_rate * hidden_node.get_output() * self.output_node.delta_j
+            # Update hidden node's delta_j
             hidden_node.delta_j = ( hidden_node.get_output() * (1 - hidden_node.get_output()) ) * (self.output_node.delta_j * nwp.weight)
         # Update input to hidden layer delta_ws
         for hidden_node in self.hidden_nodes:
@@ -322,29 +317,34 @@ class NeuralNet(Net):
             for nwp in hidden_node.parent_nwps:
                 nwp.update_weight()
 
-    def print_nodes(self):
-        print('\ninput_nodes')
-        for input_node in self.input_nodes:
-            print(input_node)
-        print('\nhidden_nodes')
-        for hidden_node in self.hidden_nodes:
-            print(hidden_node)
+    def print_debug(self):
+        # print('\ninput_nodes')
+        # for input_node in self.input_nodes:
+        #     print(input_node)
+        # print('\nbias_to_hidden_weights')
+        # for hidden_node in self.hidden_nodes[1:]:
+        #     print(hidden_node.parent_nwps[0])
+        print('\ninput_to_hidden_weights')
+        for hidden_node in self.hidden_nodes[1:]:
+            for nwp in hidden_node.parent_nwps:
+                print(nwp)
+        # print('\nhidden_nodes')
+        # for hidden_node in self.hidden_nodes:
+        #     print(hidden_node)
+        # print('\nbias_to_output_weight')
+        # print(self.output_node.parent_nwps[0].weight)
+        print('\nhidden_to_output_weights')
+        for nwp in self.output_node.parent_nwps:
+            print(nwp)
         print('\noutput_node')
         print(self.output_node)
-
-    def print_bias_node_weights(self):
-        print('\nbias_to_hidden')
-        for hidden_node in self.hidden_nodes[1:]:
-            print(hidden_node.parent_nwps[0])
-        print('\nbias_to_output')
-        print(self.output_node.parent_nwps[0].weight)
 
 
 if __name__ == '__main__':
     # 0      1   2     3    4    5      6
     # net.py l/n train test rate epochs num_hidden
 
-    DEBUG = False
+    DEBUG = True
 
     num_epochs = int(sys.argv[5])
     learning_rate = float(sys.argv[4])

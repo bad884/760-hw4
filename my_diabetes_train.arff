@@ -1,0 +1,21 @@
+@relation pima_diabetes
+@attribute 'preg' numeric
+@attribute 'plas' numeric
+@attribute 'pres' numeric
+@attribute 'skin' numeric
+@attribute 'insu' numeric
+@attribute 'mass' numeric
+@attribute 'pedi' numeric
+@attribute 'age' numeric
+@attribute 'class' { negative, positive}
+@data
+4,134,72,0,0,23.8,0.277,60,positive
+1,81,72,18,40,26.6,0.283,24,negative
+1,122,90,51,220,49.7,0.325,31,positive
+2,85,65,0,0,39.6,0.93,27,negative
+1,163,72,0,0,39,1.222,33,positive
+1,126,56,29,152,28.7,0.801,21,negative
+0,95,85,25,36,37.4,0.247,24,positive
+1,96,122,0,0,22.4,0.207,27,negative
+3,171,72,33,135,33.3,0.199,24,positive
+4,144,58,28,140,29.5,0.287,37,negative
