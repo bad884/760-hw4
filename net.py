@@ -134,9 +134,7 @@ class Node(object):
             return 1.0
         elif self.node_type == NodeType.HIDDEN or self.node_type == NodeType.OUTPUT:
             self.output_value = 0.0
-            # print
             for parent_nwp in self.parent_nwps:
-                # print('{} to {}:\t{}\t{}'.format(parent_nwp.parent_node.node_type.name, parent_nwp.child_node.node_type.name, parent_nwp.parent_node.get_output(), parent_nwp.weight))
                 self.output_value += parent_nwp.parent_node.get_output() * parent_nwp.weight
             self.output_value = sigmoid(self.output_value)
             return self.output_value
@@ -182,8 +180,6 @@ class Net(object):
 
             if DEBUG:
                 self.train_instances = self.train_instances[:10]
-                # self.train_instances = self.train_instances[:1]
-                # self.train_instances = self.train_instances[:2]
             else:
                 random.shuffle(self.train_instances)
 
@@ -365,8 +361,6 @@ if __name__ == '__main__':
 
     # std_train_instances, std_test_instances = train_instances, test_instances
     std_train_instances, std_test_instances = standardize_instances(train_instances, test_instances, attr_names, attr_types, attr_values)
-
-    # random.shuffle(std_train_instances)
 
     if not DEBUG:
         random.shuffle(std_train_instances)
